@@ -1,0 +1,77 @@
+#!/usr/bin/env python3
+
+import os
+import argparse
+import subprocess
+import re
+import time
+
+class SunshineToolbox:
+    def __init__(self):
+        self.status_file_path = os.path.expanduser("~/.local/share/sunshine_status/status.txt")
+
+    def write_status(self, value):
+        os.makedirs(os.path.dirname(self.status_file_path), exist_ok=True)
+        with open(self.status_file_path, 'w') as f:
+            f.write(value)
+        print(f"Written '{value}' to {self.status_file_path}")
+
+    def set_status(self, value):
+        if value.lower() not in ['true', 'false']:
+            print("Invalid value. Please specify true or false.")
+            return
+        self.write_status(value)
+
+    def close_steam_big_picture(self):
+        result = subprocess.run(['wmctrl', '-l'], stdout=subprocess.PIPE)
+        windows = result.stdout.decode('utf-8')
+        pattern = re.compile(r'\b(?=.*\bsteam\b)(?=.*\bmode\b)(?=.*\bbig\b)(?=.*\bpicture\b)', re.IGNORECASE)
+        for line in windows.splitlines():
+            parts = line.split(None, 3)
+            if len(parts) == 4:
+                window_id, desktop_id, pid, title = parts
+                if pattern.search(title):
+                    close_result = subprocess.run(['wmctrl', '-ic', window_id], stdout=subprocess.PIPE)
+                    if close_result.returncode == 0:
+                        print(f"Closed window: {title}")
+                    else:
+                        print(f"Failed to close window: {title}")
+                    return True
+        print("No matching window found.")
+        return False
+
+    def close_big_picture(self):
+        while True:
+            if not self.close_steam_big_picture():
+                break
+            time.sleep(1)
+
+    def handle_command(self, args):
+        if args.set_status:
+            self.set_status(args.set_status)
+        elif args.close_bp:
+            self.close_big_picture()
+        elif args.bp_dummy:
+            print("This is a dummy action for Big Picture.")
+        else:
+            print("No valid command specified.")
+
+def main():
+    # Create argument parser
+    parser = argparse.ArgumentParser(description="Sunshine Toolbox")
+
+    # Add arguments
+    parser.add_argument('--set-status', choices=['true', 'false'], help="Set status to true or false")
+    parser.add_argument('--close-bp', action='store_true', help="Close Big Picture")
+    parser.add_argument('--bp-dummy', action='store_true', help="Dummy action for Big Picture")
+
+    args = parser.parse_args()
+
+    # Instantiate the SunshineToolbox class
+    toolbox = SunshineToolbox()
+
+    # Handle the command
+    toolbox.handle_command(args)
+
+if __name__ == "__main__":
+    main()
