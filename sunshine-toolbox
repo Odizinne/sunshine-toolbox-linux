@@ -14,10 +14,21 @@ class SunshineToolbox:
         if value.lower() not in ['true', 'false']:
             print("Invalid value. Please specify true or false.")
             return
+        
+        # Ensure the directory exists
         os.makedirs(os.path.dirname(self.status_file_path), exist_ok=True)
-        with open(self.status_file_path, 'w') as f:
-            f.write(value)
-        print(f"Written '{value}' to {self.status_file_path}")
+        
+        if value.lower() == 'true':
+            # Create or empty the file
+            open(self.status_file_path, 'w').close()
+            print(f"Created an empty file at {self.status_file_path}")
+        elif value.lower() == 'false':
+            # Remove the file if it exists
+            try:
+                os.remove(self.status_file_path)
+                print(f"Removed file at {self.status_file_path}")
+            except FileNotFoundError:
+                print(f"No file found at {self.status_file_path} to remove")
 
     def close_steam_big_picture(self):
         result = subprocess.run(['wmctrl', '-l'], stdout=subprocess.PIPE)
