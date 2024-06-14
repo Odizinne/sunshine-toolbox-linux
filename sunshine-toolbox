@@ -15,15 +15,12 @@ class SunshineToolbox:
             print("Invalid value. Please specify true or false.")
             return
         
-        # Ensure the directory exists
         os.makedirs(os.path.dirname(self.status_file_path), exist_ok=True)
         
         if value.lower() == 'true':
-            # Create or empty the file
             open(self.status_file_path, 'w').close()
             print(f"Created an empty file at {self.status_file_path}")
         elif value.lower() == 'false':
-            # Remove the file if it exists
             try:
                 os.remove(self.status_file_path)
                 print(f"Removed file at {self.status_file_path}")
@@ -65,13 +62,35 @@ class SunshineToolbox:
             
             time.sleep(1)
 
+    def get_randr_command(self):
+        if os.environ.get('XDG_SESSION_TYPE') == 'x11':
+            randr_command = 'xrandr'
+        elif os.environ.get('XDG_SESSION_TYPE') == 'wayland':
+            if 'gnome' in os.environ.get('XDG_SESSION_DESKTOP', '').lower():
+                randr_command = 'gnome-randr'
+            else:
+                print("Unsupported Wayland desktop environment.")
+                exit(1)
+        else:
+            print("Unsupported session type.")
+            exit(1)
+        return randr_command
+        
+    def set_client_resolution(self, randr_command, adapter, width, height, fps):
+        command = [randr_command, '--output', adapter, '--mode', f'{width}x{height}', '--rate', fps]
+        subprocess.run(command, check=True)
+
+    def reset_resolution(self, randr_command, adapter):
+        subprocess.run([randr_command, '--output', adapter, '--auto'])
+
 def main():
     parser = argparse.ArgumentParser(description="Sunshine Toolbox")
 
     parser.add_argument('--set-status', choices=['true', 'false'], help="Set status to true or false")
     parser.add_argument('--close-bp', action='store_true', help="Close Big Picture")
     parser.add_argument('--bp-dummy', action='store_true', help="Dummy process for Big Picture")
-
+    parser.add_argument('--client-res', nargs=4, metavar=('ADAPTER', 'WIDTH', 'HEIGHT', 'FPS'), help="Set resolution to client resolution.")
+    parser.add_argument('--default-res', nargs=1, metavar='ADAPTER', help="Set resolution to default.")
     args = parser.parse_args()
 
     toolbox = SunshineToolbox()
@@ -82,6 +101,14 @@ def main():
         toolbox.close_steam_big_picture()
     elif args.bp_dummy:
         toolbox.bp_dummy_process()
+    elif args.client_res:
+        adapter, width, height, fps = args.client_res
+        randr_command = toolbox.get_randr_command()
+        toolbox.set_client_resolution(randr_command, adapter, width, height, fps)
+    elif args.default_res:
+        adapter = args.default_res[0]
+        randr_command = toolbox.get_randr_command()
+        toolbox.reset_resolution(randr_command, adapter)
     else:
         parser.print_help()
 
