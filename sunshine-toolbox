@@ -61,27 +61,46 @@ class SunshineToolbox:
             window_found_once = window_found_once or found
             
             time.sleep(1)
-
-    def get_randr_command(self):
+    def get_desktop_info(self):
         if os.environ.get('XDG_SESSION_TYPE') == 'x11':
-            randr_command = 'xrandr'
+            desktop = 'x11'
         elif os.environ.get('XDG_SESSION_TYPE') == 'wayland':
             if 'gnome' in os.environ.get('XDG_SESSION_DESKTOP', '').lower():
-                randr_command = 'gnome-randr'
-            else:
-                print("Unsupported Wayland desktop environment.")
-                exit(1)
+                desktop = 'gnome-wayland'
+            if 'kde' in os.environ.get('XDG_SESSION_DESKTOP', '').lower():
+                desktop = 'kde-wayland'
+        else:
+            print("Unsupported session type.")
+            exit(1)
+        return desktop
+    
+    def get_randr_command(self, desktop):
+        if desktop == 'x11':
+            randr_command = 'xrandr'
+        elif desktop == 'gnome-wayland':
+            randr_command = 'gnome-randr'
+        if desktop == 'kde-wayland':
+            randr_command = 'kscreen-doctor'
         else:
             print("Unsupported session type.")
             exit(1)
         return randr_command
         
-    def set_client_resolution(self, randr_command, adapter, width, height, fps):
-        command = [randr_command, '--output', adapter, '--mode', f'{width}x{height}', '--rate', fps]
+    def set_client_resolution(self, randr_command, adapter, width, height, fps, desktop):
+        if desktop == 'x11' or desktop == 'gnome-wayland':
+            command = [randr_command, '--output', adapter, '--mode', f'{width}x{height}', '--rate', fps]
+        elif desktop == 'kde-wayland':
+            command = [randr_command, f"output.{adapter}.mode.{width}x{height}@{fps}"]
+            print(command)
         subprocess.run(command, check=True)
 
-    def reset_resolution(self, randr_command, adapter):
-        subprocess.run([randr_command, '--output', adapter, '--auto'])
+    def reset_resolution(self, randr_command, adapter, desktop):
+        if desktop == 'x11' or desktop == 'gnome-wayland':
+            command = [randr_command, '--output', adapter, '--auto']
+        elif desktop == 'kde-wayland':
+            command = [randr_command, f"output.{adapter}.mode.0"]
+
+        subprocess.run(command, check=True)
 
 def main():
     parser = argparse.ArgumentParser(description="Sunshine Toolbox")
@@ -103,12 +122,14 @@ def main():
         toolbox.bp_dummy_process()
     elif args.client_res:
         adapter, width, height, fps = args.client_res
-        randr_command = toolbox.get_randr_command()
-        toolbox.set_client_resolution(randr_command, adapter, width, height, fps)
+        desktop = toolbox.get_desktop_info()
+        randr_command = toolbox.get_randr_command(desktop)
+        toolbox.set_client_resolution(randr_command, adapter, width, height, fps, desktop)
     elif args.default_res:
         adapter = args.default_res[0]
-        randr_command = toolbox.get_randr_command()
-        toolbox.reset_resolution(randr_command, adapter)
+        desktop = toolbox.get_desktop_info()
+        randr_command = toolbox.get_randr_command(desktop)
+        toolbox.reset_resolution(randr_command, adapter, desktop)
     else:
         parser.print_help()
 
